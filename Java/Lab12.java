@@ -1,6 +1,4 @@
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.Scanner;
 
 public class Lab12 implements Runnable {
@@ -36,26 +34,27 @@ public class Lab12 implements Runnable {
         public void sortList()
         {
             if (head != null) {
-                Node current = head, index = null;
+                Node current = head;
+                Node nextNode;
 
                 String temp;
 
                 while (current != null) {
-                    index = current.next;
-                    while (index != null) {
-                        if (CharSequence.compare(current.data, index.data) > 0) {
+                    nextNode = current.next;
+                    while (nextNode != null) {
+                        if (CharSequence.compare(current.data, nextNode.data) > 0) {
                             temp = current.data;
-                            current.data = index.data;
-                            index.data = temp;
+                            current.data = nextNode.data;
+                            nextNode.data = temp;
                         }
-                        index = index.next;
+                        nextNode = nextNode.next;
                     }
                     current = current.next;
                 }
             }
         }
 
-        public void display()
+        public void showList()
         {
             Node current = head;
 
@@ -109,7 +108,7 @@ public class Lab12 implements Runnable {
         isRunning = false;
 
         synchronized (sList) {
-            sList.display();
+            sList.showList();
         }
     }
 }

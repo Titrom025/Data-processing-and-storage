@@ -5,7 +5,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public class Lab13 implements Runnable {
     private static final int PHILOSOPHER_COUNT = 5;
     private static final int FORK_COUNT = 5;
-    private static ReentrantLock[] forks = new ReentrantLock[5];
+    private static final ReentrantLock[] forks = new ReentrantLock[5];
     private static final Random random = new Random();
 
     private static final ReentrantLock forkLock = new ReentrantLock();
@@ -56,7 +56,7 @@ public class Lab13 implements Runnable {
                 if (philosopherHasEaten) {
                     forkLock.lock();
                     System.out.printf("Philosopher %s - notify\n", philosopher_id);
-                    tryGrabForks.signal();
+                    tryGrabForks.signalAll();
                     forkLock.unlock();
                     break;
                 }
@@ -73,7 +73,6 @@ public class Lab13 implements Runnable {
 
     public static void main(String[] args) {
         for (int i = 0; i < FORK_COUNT; i++) {
-//            forks.add(new ReentrantLock());
             forks[i] = new ReentrantLock();
         }
 

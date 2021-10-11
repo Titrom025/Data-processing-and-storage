@@ -1,14 +1,9 @@
 import java.util.concurrent.Semaphore;
 
-public class Lab14 implements Runnable {
+public class Lab14 {
     private static final Semaphore AObject = new Semaphore(0);
     private static final Semaphore BObject = new Semaphore(0);
     private static final Semaphore CObject = new Semaphore(0);
-
-    @Override
-    public void run() {
-
-    }
 
     private static void runProductLine(Semaphore semaphore, int sleepTime, String objName) {
         new Thread(() -> {
