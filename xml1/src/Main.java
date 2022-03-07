@@ -1,14 +1,17 @@
+import javax.management.ValueExp;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.*;
 import java.io.FileInputStream;
+import java.lang.invoke.VarHandle;
 import java.util.*;
 
 public class Main {
     private static final Map<String, Person> personById = new HashMap<>();
     private static final Map<String, Set<String>> idsByName = new HashMap<>();
+    private static final Map<String, Set<Person>> personsWithoutID = new HashMap<>();
     private static XMLEventReader reader;
 
     public static void main(String[] args) {
@@ -18,8 +21,39 @@ public class Main {
 
         List<Person> errors = persons.stream().filter(p ->
                 !p.checkConsistency(personById)).toList();
-        for (Person student : errors) {
-            System.out.println(student.toStringMain());
+
+        for (Person problemPerson : errors) {
+//            System.out.println(problemPerson.toStringMain());
+            Set<Person> personsNoId = new HashSet<>();
+            for (final Set<Person> personSet : personsWithoutID.values()) {
+                for (Person personNoId : personSet)
+                    if (personNoId.getFullName().equals(problemPerson.getFullName())) {
+                        personsNoId.add(personNoId);
+                    }
+            }
+            solveProblem(problemPerson, personsNoId);
+        }
+
+        errors = persons.stream().filter(p ->
+                !p.checkConsistency(personById)).toList();
+
+        for (Person problemPerson : errors) {
+            System.out.println(problemPerson.toStringMain());
+            Set<Person> personsNoId = new HashSet<>();
+            for (final Set<Person> personSet : personsWithoutID.values()) {
+                for (Person personNoId : personSet)
+                    if (personNoId.getFullName().equals(problemPerson.getFullName())) {
+                        personsNoId.add(personNoId);
+                        System.out.println(" - " + personNoId.toStringMain());
+                    }
+            }
+            solveProblem(problemPerson, personsNoId);
+            System.out.println(problemPerson.toStringMain() + "\n\n");
+        }
+
+        for (Person problemPerson : errors) {
+            System.out.println(problemPerson.toStringMain());
+            problemPerson.debugTest(personById);
         }
         System.out.println(errors.size());
     }
@@ -27,14 +61,28 @@ public class Main {
     private static List<Person> combinePeople(List<Person> persons) {
         for (final Person person : persons) {
             final String id = person.getId();
-            if (id == null) continue;
+            if (id == null) {
+                Set<Person> personsWitnNoId = personsWithoutID.getOrDefault(person.getFullName(), new HashSet<>());
+                personsWitnNoId.add(person);
+                personsWithoutID.put(person.getFullName(), personsWitnNoId);
+                continue;
+            }
 
+            if (id.equals("P390327")) {
+                System.out.println(person.toStringMain());
+            }
             if (personById.containsKey(id)) {
                 Person collision = personById.get(id);
                 person.mergePerson(collision);
             }
             personById.put(id, person);
         }
+
+//        for (final Set<Person> personSet : personsWithoutID.values()) {
+//            for (Person personNoId : personSet)
+//                if (personNoId.getLastName().equals("Loschiavo"))
+//                    System.out.println(personNoId.toStringMain());
+//        }
 
         for (final Person person : personById.values()) {
             final String name = person.getFullName();
@@ -107,11 +155,11 @@ public class Main {
             parentsToAdd.forEach(person::addParent);
         }
 
-        for (final Person person : personById.values()) {
-            if (person.getSpouse() == null || person.getChildrenNumber() == null) {
-                person.setChildrenNumber(0);
-            }
-        }
+//        for (final Person person : personById.values()) {
+//            if (person.getSpouse() == null || person.getChildrenNumber() == null) {
+//                person.setChildrenNumber(0);
+//            }
+//        }
 
         return personById.values().stream()
                 .sorted(Comparator.comparing(Person::getId)).toList();
@@ -219,6 +267,12 @@ public class Main {
                     EndElement endElement = xmlEvent.asEndElement();
                     if (endElement.getName().getLocalPart().equals("person")) {
                         peopleList.add(person);
+
+                        peopleList.addAll(person.getChildren());
+                        peopleList.addAll(person.getParents());
+                        peopleList.addAll(person.getSiblings());
+                        if (person.getSpouse() != null)
+                            peopleList.add(person.getSpouse());
                     }
                 }
             }
@@ -295,6 +349,106 @@ public class Main {
                 final String id = ids.iterator().next();
                 peopleToAdd.add(personById.get(id));
             }
+        }
+    }
+
+    private static void solveProblem(Person person, Set<Person> others) {
+        if (person.getGender() == null) {
+            for (Person other : others) {
+                if (other.getSpouse() != null && Objects.equals(person.getId(), other.getSpouse().getId())) {
+                    if (Objects.equals(other.getSpouse().getGender(), "male"))
+                        person.setGender("male");
+                    else if (Objects.equals(other.getSpouse().getGender(), "female"))
+                        person.setGender("female");
+                }
+            }
+        }
+
+        if (person.getGender() == null) {
+            for (Person other : others) {
+                for (Person otherSibling : other.getSiblings()) {
+                    for (Person personSibling : person.getSiblings()) {
+                        if (personSibling.getId().equals(otherSibling.getId())) {
+                            if (other.getGender() != null) {
+                                person.setGender(other.getGender());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if (person.getGender() == null) {
+            int femaleCount = 0;
+            int maleCount = 0;
+            for (Person other : others) {
+                if (other.getGender() != null && other.getGender().equals("male"))
+                    maleCount++;
+                if (other.getGender() != null && other.getGender().equals("female"))
+                    femaleCount++;
+            }
+
+            if (femaleCount == 0 && maleCount > 0)
+                person.setGender("male");
+            if (maleCount == 0 && femaleCount > 0)
+                person.setGender("female");
+        }
+
+//        if (person.getSpouse() == null) {
+//            for (Person other : others) {
+//                if (other.getSpouse() != null && Objects.equals(person.getId(), other.getSpouse().getId())) {
+////                    person.setSpouse(other);
+////                    if (person.getSpouse().getId() == null) {
+////                        for (Person innerOther : others) {
+////                            if (person.getSpouse() != null &&
+////                                    person.getSpouse().getFullName().equals(innerOther.getFullName()) &&
+////                                    innerOther.getSpouse() != null &&
+////                                    innerOther.getSpouse().getId() != null &&
+////                                    !Objects.equals(innerOther.getSpouse().getId(), person.getId())) {
+////                                person.setSpouse(personById.get(innerOther.getSpouse().getId()));
+////                            }
+////                        }
+////                    }
+//
+//
+//                    break;
+//                }
+//            }
+//        }
+
+        if (person.getSpouse() != null && person.getSpouse().getId() == null) {
+            Set<String> spouces = idsByName.get(person.getSpouse().getFullName());
+            System.out.println(person.getSpouse().toStringMain());
+            for (String spouce : spouces) {
+                System.out.println("Possible spouce: " + personById.get(spouce).toStringMain());
+                for (Person possibleChild : personById.get(spouce).getChildren()) {
+                    if (person.getChildren().contains(possibleChild)) {
+                        person.resetSpouce();
+                        person.setSpouse(personById.get(spouce));
+                        break;
+                    }
+                }
+                if (person.getSpouse().getId() != null) {
+                    break;
+                }
+            }
+        }
+
+        if (person.getSpouse() != null && person.getSpouse().getGender() == null) {
+            if ((Objects.equals(person.getGender(), "male"))) {
+                person.getSpouse().setGender("female");
+            } else if ((Objects.equals(person.getGender(), "female"))) {
+                person.getSpouse().setGender("male");
+            }
+        }
+
+        if (person.getChildrenNumber() == null || person.getChildrenNumber() > person.getChildren().size()) {
+            if (person.getSpouse() != null) {
+                for (Person spouseChild: person.getSpouse().getChildren()) {
+                    person.getChildren().add(spouseChild);
+                    spouseChild.addParent(person);
+                }
+            } 
         }
     }
 }

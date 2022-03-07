@@ -152,7 +152,7 @@ public class Person {
 
     public void addParent(String fullname, String gender) {
         Person parent = new Person();
-        parent.setFirstName(fullname);
+        parent.setFullName(fullname);
         parent.setGender(gender);
         addParent(parent);
     }
@@ -166,13 +166,18 @@ public class Person {
             throw new Error("Spouce already set");
         }
 
-
-        spouce.spouse = this;
         this.spouse = spouce;
+        spouce.spouse = this;
 
         if (spouse.childrenNumber != null) {
             this.setChildrenNumber(spouse.childrenNumber);
+        } else if (this.childrenNumber != null) {
+            spouce.setChildrenNumber(this.childrenNumber);
         }
+    }
+
+    public void resetSpouce() {
+        this.spouse = null;
     }
 
     public void setSpouse(String name) {
@@ -213,15 +218,15 @@ public class Person {
 
                 children.stream()
                         .map(Person::getParents)
-                        .allMatch(s -> s.contains(this)) &&
+                        .allMatch(s -> Arrays.asList(s.toArray()).contains(this)) &&
 
                 parents.stream()
                         .map(Person::getChildren)
-                        .allMatch(s -> s.contains(this)) &&
+                        .allMatch(s -> Arrays.asList(s.toArray()).contains(this)) &&
 
                 siblings.stream()
                         .map(Person::getSiblings)
-                        .allMatch(s -> s.contains(this)) &&
+                        .allMatch(s -> Arrays.asList(s.toArray()).contains(this)) &&
 
                 Stream.concat(
                         Stream.of(children, siblings, parents)
@@ -230,10 +235,12 @@ public class Person {
                 ).allMatch(p -> p.id != null && personById.get(p.id) == p);
     }
 
-    public void mergePerson(Person person) {
+    public void lightMerge(Person person) {
         if (person == this) return;
 
         if (this.id == null || person.id == null || !this.id.equals(person.id)) {
+            System.out.println(this);
+            System.out.println(person);
             throw new Error("Incorrect id");
         }
 
@@ -249,17 +256,23 @@ public class Person {
             this.setGender(person.gender);
         }
 
-        if (person.spouse != null) {
-            this.spouse = person.spouse;
-            this.spouse.spouse = this;
-        }
-
         if (person.childrenNumber != null) {
             this.setChildrenNumber(person.childrenNumber);
         }
 
         if (person.siblingsNumber != null) {
             this.setSiblingsNumber(person.siblingsNumber);
+        }
+    }
+
+    public void mergePerson(Person person) {
+        lightMerge(person);
+
+        if (person == this) return;
+
+        if (person.spouse != null) {
+            this.spouse = person.spouse;
+            this.spouse.spouse = this;
         }
 
         for (Person parent : person.parents) {
@@ -321,5 +334,46 @@ public class Person {
     @Override
     public int hashCode() {
         return Objects.hash(id, firstName, lastName, gender, childrenNumber, siblingsNumber);
+    }
+    
+    public void debugTest(final Map<String, Person> personById) {
+        boolean first = !(id != null && firstName != null && lastName != null && gender != null &&
+                parents.size() <= 2 && childrenNumber != null && siblingsNumber != null &&
+                children.size() == childrenNumber && siblings.size() == siblingsNumber);
+        if (first) {
+            System.out.println("Basic problem");
+        }
+
+        if (!(spouse != null || childrenNumber == 0)) {
+            System.out.println("Spouse problem");
+        }
+
+        if (!(children.stream()
+                .map(Person::getParents)
+                .allMatch(s -> s.contains(this)))) {
+            System.out.println("children problem");
+        }
+
+        if (!(parents.stream()
+                        .map(Person::getChildren)
+                        .allMatch(s -> Arrays.asList(s.toArray()).contains(this)))) {
+            System.out.println("Parents problem");
+            parents.stream()
+                    .map(Person::getChildren).forEach(s -> System.out.println((Arrays.asList(s.toArray()).contains(this))));
+        }
+
+        if (!(Stream.concat(
+                Stream.of(children, siblings, parents)
+                        .flatMap(Collection::stream),
+                Stream.ofNullable(spouse)
+        ).allMatch(p -> p.id != null && personById.get(p.id) == p))) {
+            System.out.println("children, siblings, parents problem");
+        }
+
+        if (!(siblings.stream()
+                .map(Person::getSiblings)
+                .allMatch(s -> s.contains(this)))) {
+            System.out.println("siblings problem");
+        };
     }
 }
