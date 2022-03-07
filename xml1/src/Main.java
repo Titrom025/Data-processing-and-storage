@@ -23,7 +23,6 @@ public class Main {
                 !p.checkConsistency(personById)).toList();
 
         for (Person problemPerson : errors) {
-//            System.out.println(problemPerson.toStringMain());
             Set<Person> personsNoId = new HashSet<>();
             for (final Set<Person> personSet : personsWithoutID.values()) {
                 for (Person personNoId : personSet)
@@ -48,11 +47,18 @@ public class Main {
                     }
             }
             solveProblem(problemPerson, personsNoId);
-            System.out.println(problemPerson.toStringMain() + "\n\n");
         }
 
+        for (final Person person : personById.values()) {
+            if (person.getSpouse() == null || person.getChildrenNumber() == null) {
+                person.setChildrenNumber(0);
+            }
+        }
+
+        errors = persons.stream().filter(p ->
+                !p.checkConsistency(personById)).toList();
+
         for (Person problemPerson : errors) {
-            System.out.println(problemPerson.toStringMain());
             problemPerson.debugTest(personById);
         }
         System.out.println(errors.size());
@@ -68,21 +74,12 @@ public class Main {
                 continue;
             }
 
-            if (id.equals("P390327")) {
-                System.out.println(person.toStringMain());
-            }
             if (personById.containsKey(id)) {
                 Person collision = personById.get(id);
                 person.mergePerson(collision);
             }
             personById.put(id, person);
         }
-
-//        for (final Set<Person> personSet : personsWithoutID.values()) {
-//            for (Person personNoId : personSet)
-//                if (personNoId.getLastName().equals("Loschiavo"))
-//                    System.out.println(personNoId.toStringMain());
-//        }
 
         for (final Person person : personById.values()) {
             final String name = person.getFullName();
@@ -112,16 +109,9 @@ public class Main {
             if (id != null) {
                 person.setId(id);
                 personById.get(id).mergePerson(person);
-            } //else {
-//                System.out.println(name);
-//            }
+            }
         }
 
-//        for (String id: conflicts) {
-//            System.out.println(personById.get(id).toStringMain());
-//        }
-
-        System.out.println("\n\n");
         for (final Person person : personById.values()) {
             if (person.getSpouse() != null) {
                 final Set<Person> spouseToAdd = new HashSet<>();
@@ -155,11 +145,7 @@ public class Main {
             parentsToAdd.forEach(person::addParent);
         }
 
-//        for (final Person person : personById.values()) {
-//            if (person.getSpouse() == null || person.getChildrenNumber() == null) {
-//                person.setChildrenNumber(0);
-//            }
-//        }
+
 
         return personById.values().stream()
                 .sorted(Comparator.comparing(Person::getId)).toList();
@@ -394,31 +380,28 @@ public class Main {
                 person.setGender("female");
         }
 
-//        if (person.getSpouse() == null) {
-//            for (Person other : others) {
-//                if (other.getSpouse() != null && Objects.equals(person.getId(), other.getSpouse().getId())) {
-////                    person.setSpouse(other);
-////                    if (person.getSpouse().getId() == null) {
-////                        for (Person innerOther : others) {
-////                            if (person.getSpouse() != null &&
-////                                    person.getSpouse().getFullName().equals(innerOther.getFullName()) &&
-////                                    innerOther.getSpouse() != null &&
-////                                    innerOther.getSpouse().getId() != null &&
-////                                    !Objects.equals(innerOther.getSpouse().getId(), person.getId())) {
-////                                person.setSpouse(personById.get(innerOther.getSpouse().getId()));
-////                            }
-////                        }
-////                    }
-//
-//
-//                    break;
-//                }
-//            }
-//        }
+        if (person.getSpouse() == null) {
+            for (Person other : others) {
+                if (other.getSpouse() != null && Objects.equals(person.getId(), other.getSpouse().getId())) {
+                    person.setSpouse(other);
+                    if (person.getSpouse().getId() == null) {
+                        for (Person innerOther : others) {
+                            if (person.getSpouse() != null &&
+                                    person.getSpouse().getFullName().equals(innerOther.getFullName()) &&
+                                    innerOther.getSpouse() != null &&
+                                    innerOther.getSpouse().getId() != null &&
+                                    !Objects.equals(innerOther.getSpouse().getId(), person.getId())) {
+                                person.setSpouse(personById.get(innerOther.getSpouse().getId()));
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+        }
 
         if (person.getSpouse() != null && person.getSpouse().getId() == null) {
             Set<String> spouces = idsByName.get(person.getSpouse().getFullName());
-            System.out.println(person.getSpouse().toStringMain());
             for (String spouce : spouces) {
                 System.out.println("Possible spouce: " + personById.get(spouce).toStringMain());
                 for (Person possibleChild : personById.get(spouce).getChildren()) {
@@ -448,7 +431,28 @@ public class Main {
                     person.getChildren().add(spouseChild);
                     spouseChild.addParent(person);
                 }
-            } 
+            }
+        }
+
+        if (person.getSpouse() != null && person.getSpouse().getId() == null) {
+            if (person.getSpouse().getSiblingsNumber() != null && person.getSpouse().getSiblingsNumber() == 1) {
+                Set<String> spouceSiblings = idsByName.get(person.getSpouse().getFullName());
+                if (spouceSiblings.size() == 2) {
+                    for (String sibling : spouceSiblings) {
+                        if (Objects.equals(person.getId(), sibling))
+                            continue;
+                        if (personById.get(sibling).getId() != null) {
+                            System.out.println("Set id");
+                            person.getSpouse().setId(personById.get(sibling).getId());
+                            person.getSpouse().setSiblingsNumber(personById.get(sibling).getSiblingsNumber());
+                            personById.get(sibling).getSpouse().setId(person.getId());
+                            personById.get(sibling).getSpouse().setSiblingsNumber(person.getSiblingsNumber());
+                            person.setSpouse(personById.get(sibling));
+                            person.getSpouse().setSpouse(personById.get(person.getId()));
+                        }
+                    }
+                }
+            }
         }
     }
 }

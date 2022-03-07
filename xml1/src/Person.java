@@ -86,6 +86,10 @@ public class Person {
         this.childrenNumber = childrenNumber;
     }
 
+    public Integer getSiblingsNumber() {
+        return siblingsNumber;
+    }
+
     public void setSiblingsNumber(int siblingsNumber) {
         if (this.siblingsNumber != null && this.siblingsNumber != siblingsNumber) {
             throw new Error("Siblings number already set");
@@ -367,6 +371,20 @@ public class Person {
                         .flatMap(Collection::stream),
                 Stream.ofNullable(spouse)
         ).allMatch(p -> p.id != null && personById.get(p.id) == p))) {
+            boolean ch =
+                    Stream.of(children)
+                            .flatMap(Collection::stream).allMatch(p -> p.id != null && personById.get(p.id) == p);
+            boolean sib =
+                    Stream.of(siblings)
+                            .flatMap(Collection::stream).allMatch(p -> p.id != null && personById.get(p.id) == p);
+            boolean par =
+                    Stream.of(parents)
+                            .flatMap(Collection::stream)
+            .allMatch(p -> p.id != null && personById.get(p.id) == p);
+            System.out.println(ch);
+            System.out.println(sib);
+            System.out.println(par);
+            System.out.println(spouse.toStringMain());
             System.out.println("children, siblings, parents problem");
         }
 
