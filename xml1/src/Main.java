@@ -1,11 +1,9 @@
-import javax.management.ValueExp;
 import javax.xml.namespace.QName;
 import javax.xml.stream.XMLEventReader;
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.events.*;
 import java.io.FileInputStream;
-import java.lang.invoke.VarHandle;
 import java.util.*;
 
 public class Main {
@@ -33,22 +31,6 @@ public class Main {
             solveProblem(problemPerson, personsNoId);
         }
 
-        errors = persons.stream().filter(p ->
-                !p.checkConsistency(personById)).toList();
-
-        for (Person problemPerson : errors) {
-            System.out.println(problemPerson.toStringMain());
-            Set<Person> personsNoId = new HashSet<>();
-            for (final Set<Person> personSet : personsWithoutID.values()) {
-                for (Person personNoId : personSet)
-                    if (personNoId.getFullName().equals(problemPerson.getFullName())) {
-                        personsNoId.add(personNoId);
-                        System.out.println(" - " + personNoId.toStringMain());
-                    }
-            }
-            solveProblem(problemPerson, personsNoId);
-        }
-
         for (final Person person : personById.values()) {
             if (person.getSpouse() == null || person.getChildrenNumber() == null) {
                 person.setChildrenNumber(0);
@@ -58,10 +40,7 @@ public class Main {
         errors = persons.stream().filter(p ->
                 !p.checkConsistency(personById)).toList();
 
-        for (Person problemPerson : errors) {
-            problemPerson.debugTest(personById);
-        }
-        System.out.println(errors.size());
+        System.out.println("Errors: " + errors.size());
     }
 
     private static List<Person> combinePeople(List<Person> persons) {
@@ -403,7 +382,6 @@ public class Main {
         if (person.getSpouse() != null && person.getSpouse().getId() == null) {
             Set<String> spouces = idsByName.get(person.getSpouse().getFullName());
             for (String spouce : spouces) {
-                System.out.println("Possible spouce: " + personById.get(spouce).toStringMain());
                 for (Person possibleChild : personById.get(spouce).getChildren()) {
                     if (person.getChildren().contains(possibleChild)) {
                         person.resetSpouce();
@@ -442,11 +420,6 @@ public class Main {
                         if (Objects.equals(person.getId(), sibling))
                             continue;
                         if (personById.get(sibling).getId() != null) {
-                            System.out.println("Set id");
-                            person.getSpouse().setId(personById.get(sibling).getId());
-                            person.getSpouse().setSiblingsNumber(personById.get(sibling).getSiblingsNumber());
-                            personById.get(sibling).getSpouse().setId(person.getId());
-                            personById.get(sibling).getSpouse().setSiblingsNumber(person.getSiblingsNumber());
                             person.setSpouse(personById.get(sibling));
                             person.getSpouse().setSpouse(personById.get(person.getId()));
                         }
