@@ -1,0 +1,82 @@
+<xsd:schema xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+            xmlns:cmp="ru.nsu.fit.titkov"
+            targetNamespace="ru.nsu.fit.titkov">
+    <xsd:simpleType name="person-name-type">
+        <xsd:restriction base="xsd:string">
+            <xsd:pattern value="\w+\s\w+"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+    <xsd:simpleType name="person-gender-type">
+        <xsd:restriction base="xsd:string">
+            <xsd:enumeration value="male"/>
+            <xsd:enumeration value="female"/>
+        </xsd:restriction>
+    </xsd:simpleType>
+
+    <xsd:complexType name="person-reference-type">
+        <xsd:attribute name="person-id" type="xsd:IDREF" use="required"/>
+    </xsd:complexType>
+
+
+    <xsd:complexType name="person-parents-type">
+        <xsd:sequence>
+            <xsd:element name="mother-ref"
+                         type="cmp:person-reference-type"
+                         minOccurs="0" maxOccurs="1"/>
+            <xsd:element name="father-ref"
+                         type="cmp:person-reference-type"
+                         minOccurs="0" maxOccurs="1"/>
+        </xsd:sequence>
+    </xsd:complexType>
+
+    <xsd:complexType name="person-children-type">
+        <xsd:sequence>
+            <xsd:element name="daughter-ref"
+                         type="cmp:person-reference-type"
+                         minOccurs="0" maxOccurs="unbounded"/>
+            <xsd:element name="son-ref"
+                         type="cmp:person-reference-type"
+                         minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+        <xsd:attribute name="count" type="xsd:int" use="required"/>
+    </xsd:complexType>
+
+    <xsd:complexType name="person-siblings-type">
+        <xsd:sequence>
+            <xsd:element name="brother-ref"
+                         type="cmp:person-reference-type"
+                         minOccurs="0" maxOccurs="unbounded"/>
+            <xsd:element name="sister-ref"
+                         type="cmp:person-reference-type"
+                         minOccurs="0" maxOccurs="unbounded"/>
+        </xsd:sequence>
+        <xsd:attribute name="count" type="xsd:int" use="required"/>
+    </xsd:complexType>
+
+    <xsd:complexType name="person-type">
+        <xsd:sequence>
+            <xsd:element name="spouse" minOccurs="0" maxOccurs="1" type="cmp:person-reference-type"/>
+            <xsd:element name="parents" minOccurs="0" maxOccurs="1" type="cmp:person-parents-type"/>
+            <xsd:element name="siblings" minOccurs="0" maxOccurs="1" type="cmp:person-siblings-type"/>
+            <xsd:element name="children" minOccurs="0" maxOccurs="1" type="cmp:person-children-type"/>
+        </xsd:sequence>
+        <xsd:attribute name="id" type="xsd:ID" use="required"/>
+        <xsd:attribute name="person-name"
+                       type="cmp:person-name-type"
+                       use="required"/>
+        <xsd:attribute name="person-gender"
+                       type="cmp:person-gender-type"
+                       use="required"/>
+    </xsd:complexType>
+
+    <xsd:element name="people">
+        <xsd:complexType>
+            <xsd:sequence>
+                <xsd:element name="person"
+                             type="cmp:person-type"
+                             minOccurs="0" maxOccurs="unbounded"/>
+            </xsd:sequence>
+        </xsd:complexType>
+    </xsd:element>
+</xsd:schema>

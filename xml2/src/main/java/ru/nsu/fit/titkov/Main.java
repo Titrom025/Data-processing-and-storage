@@ -555,8 +555,7 @@ public class Main {
         try {
             JAXBContext jc = JAXBContext.newInstance("ru.nsu.fit.titkov");
             Marshaller writer = jc.createMarshaller();
-            SchemaFactory schemaFactory =
-                    SchemaFactory.newInstance(javax.xml.XMLConstants.W3C_XML_SCHEMA_NS_URI);
+            SchemaFactory schemaFactory = SchemaFactory.newInstance(javax.xml.XMLConstants.W3C_XML_SCHEMA_NS_URI);
             File schemaFile = new File ("schema.xsd");
             writer.setSchema(schemaFactory.newSchema(schemaFile));
             writer.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
