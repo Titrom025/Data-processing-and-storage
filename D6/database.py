@@ -33,21 +33,32 @@ class DB:
 	def makeRequest(self, request):
 		cur = self.conn.cursor()
 		cur.execute(request)
+
+	def makeRequestAndFetch(self, request):
+		cur = self.conn.cursor()
+		cur.execute(request)
 		return cur.fetchall()
 
+	def commitChanges(self):
+		self.conn.commit()
+
+	def rollbackChanges(self):
+		self.conn.rollback()
+		
+
 	def getCities(self):
-		airportsData = self.makeRequest("""
+		airportsData = self.makeRequestAndFetch("""
 			SELECT t.*
 			FROM bookings.airports_data t
 			ORDER BY city
 		""")
 		cities = set()
 		for (_, _, city, _, _) in airportsData:
-			cities.add(city['ru'])
+			cities.add(city['ru'].strip(' '))
 		return sorted(cities)
 
 	def getAirports(self):
-		airportsData = self.makeRequest("""
+		airportsData = self.makeRequestAndFetch("""
 			SELECT t.*
 			FROM bookings.airports_data t
 			ORDER BY airport_code
@@ -58,7 +69,7 @@ class DB:
 		return airports
 
 	def getAirports(self):
-		airports_data = self.makeRequest("""
+		airports_data = self.makeRequestAndFetch("""
 			SELECT t.*
 			FROM bookings.airports_data t
 			ORDER BY airport_code
@@ -69,7 +80,7 @@ class DB:
 		return airports
 
 	def getCityAirports(self, city_name):
-		airports_data = self.makeRequest("""
+		airports_data = self.makeRequestAndFetch("""
 			SELECT t.*
 			FROM bookings.airports_data t
 			ORDER BY airport_code
@@ -88,7 +99,7 @@ class DB:
 			date_from = self._convertDate(date, twodays=twodays)
 			date_to = self._convertDate(date, next_day=True, twodays=twodays)
 
-		flights_data = self.makeRequest(f"""
+		flights_data = self.makeRequestAndFetch(f"""
 			SELECT t.*
 			FROM bookings.flights_v t
 			WHERE {direction}_airport = '{airport_code}' and
@@ -109,7 +120,7 @@ class DB:
 		return self._getSchedule(airport_code, date, 'departure', twodays)
 
 	def getPricetable(self, flight_no):
-		pricetable = self.makeRequest(f"""
+		pricetable = self.makeRequestAndFetch(f"""
 			SELECT
 				string_agg(pricetb.seat_no, ', ' ORDER BY length(pricetb.seat_no), pricetb.seat_no),
 				pricetb.amount,
@@ -135,10 +146,102 @@ class DB:
 		for row in pricetable:
 			seat_class = row[2]
 			seat_price = row[1]
+			seats = row[0]
 			if seat_class in prices:
 				seat_class += '+'
-			prices[seat_class] = seat_price
+			prices[seat_class] = (seat_price, seats)
 
-		print(flight_no, prices)
 		return prices
+
+	def _get_no_by_id(self, flight_id):
+		return self.makeRequestAndFetch(f"""
+			SELECT flight_no
+			FROM bookings.flights_v t
+			WHERE flight_id = '{flight_id}
+		'""")[0][0]
+
+	def makeBook(self, flights, passenger_id, passenger_name, seat_class):
+		bookRefId = str(self.makeRequestAndFetch("""
+			SELECT count(t.book_ref)
+			FROM bookings.bookings t"""
+		)[0][0])
+		bookRefId = 'I' + bookRefId[1:]
+
+		ticket_no = str(self.makeRequestAndFetch("""
+			SELECT count(t.ticket_no)
+			FROM bookings.tickets t"""
+		)[0][0])
+		ticket_no = 'I' + ticket_no[1:]
+
+		prices = {}
+		total_amount = 0
+		for flight_id in flights:
+			flight_no = self._get_no_by_id(flight_id)
+			pricetb = self.getPricetable(flight_no)
+			if seat_class in pricetb:
+				total_amount += pricetb[seat_class][0]
+				prices[flight_id] = pricetb[seat_class][0]
+			else:
+				return '{"success": "false"}'
+
+		try:
+			self.makeRequest(f"""
+				INSERT INTO bookings.bookings (book_ref, book_date, total_amount)
+				VALUES ('{bookRefId}', CURRENT_TIMESTAMP, '{total_amount}');
+			""")
+
+			self.makeRequest(f"""
+				INSERT INTO tickets (ticket_no, book_ref, passenger_id, passenger_name)
+				VALUES ('{ticket_no}', '{bookRefId}' , '{passenger_id}', '{passenger_name}');
+			""")
+
+			for flight_id in flights:
+				self.makeRequest(f"""
+					INSERT INTO ticket_flights (ticket_no, flight_id, fare_conditions, amount)
+					VALUES ('{ticket_no}', '{flight_id}', '{seat_class}', {prices[flight_id]});
+				""")
+			self.commitChanges()
+			return f'{{"success": "true", "book_ref": "{bookRefId}"}}'
+		except:
+			self.rollbackChanges()
+			return '{"success": "false"}'
+
+	def checkIn(self, flight_id, passenger_id, seat_no, book_ref):
+		ticket_no = self.makeRequestAndFetch(f"""
+			SELECT t.*
+         FROM bookings.tickets t
+      	WHERE book_ref = '{book_ref}'
+		""")[0][0]
+
+		booked_flight_price = self.makeRequestAndFetch(f"""
+			SELECT t.*
+      	FROM bookings.ticket_flights t
+         WHERE ticket_no = '{ticket_no}' and flight_id = '{flight_id}'
+		""")[0][3]
+
+		flight_no = self._get_no_by_id(flight_id)
+		pricetb = self.getPricetable(flight_no)
+
+		boarding_no = str(self.makeRequestAndFetch("""
+			SELECT count(t.ticket_no)
+			FROM bookings.boarding_passes t"""
+		)[0][0])
+
+		for seat_class in pricetb:
+			price = pricetb[seat_class][0]
+			if price == booked_flight_price:
+				seats = pricetb[seat_class][1].split(', ')
+				if seat_no in seats:
+					try:
+						self.makeRequest(f"""
+							INSERT INTO boarding_passes (ticket_no, flight_id, boarding_no, seat_no)
+							VALUES ('{ticket_no}', '{flight_id}', '{boarding_no}', '{seat_no}');
+						""")
+						self.commitChanges()
+						return '{"success": "true"}'
+					except:
+						self.rollbackChanges()
+
+		return '{"success": "false"}'
+		
 

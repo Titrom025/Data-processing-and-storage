@@ -12,51 +12,51 @@ db = database.DB(host="localhost", database="demo",
 @app.route('/getCities', methods=['GET'])
 def getCities():
 	cities = db.getCities()
-	response_html = '<html>'
+	response_html = '['
 	for index, city in enumerate(cities):
-		response_html += f'<div>{index}: City: {city}\n</div>'
-	return response_html + '</html>'
+		response_html += '{' + f'"City": "{city}"' + '},'
+	return response_html + ']'
 
 @app.route('/getAirports', methods=['GET'])
 def getAirports():
 	airports = db.getAirports()
-	response_html = '<html>'
+	response_html = '['
 	for index, (code, name, city, timezone) in enumerate(airports):
-		response_html += f'<div>{index}: Code: {code}, Name: {name}, City: {city}, Timezone: {timezone}\n</div>'
-	return response_html + '</html>'
+		response_html += '{' + f'"Code": "{code}", "Name": "{name}", "City": "{city}", "Timezone": "{timezone}"' + '},'
+	return response_html + ']'
 
 @app.route('/getCityAirports', methods=['GET'])
 def getCityAirports():
 	city = request.args.get("city")
 	airports = db.getCityAirports(city)
-	response_html = '<html>'
+	response_html = '['
 	for index, (code, name, city, timezone) in enumerate(airports):
-		response_html += f'<div>{index}: Code: {code}, Name: {name}, City: {city}, Timezone: {timezone}\n</div>'
-	return response_html + '</html>'
+		response_html += '{' + f'"Code": "{code}", "Name": "{name}", "City": "{city}", "Timezone": "{timezone}"' + '},'
+	return response_html + ']'
 
 @app.route('/getInboundSchedule', methods=['GET'])
 def getInboundSchedule():
 	airport = request.args.get("airport")
 	flights = db.getInboundSchedule(airport)
-	response_html = '<html>'
+	response_html = '['
 	for flight in flights:
 		_, arr_local, dep_city, _, _, flight_no, _, _, status, _, _ = flight
-		response_html += f'<div>№ {flight_no}, Arrival time: {arr_local}, From: {dep_city}, Status: {status}\n</div>'
-	return response_html + '</html>'
+		response_html += '{' + f'"NO": "{flight_no}", "Arrival time": "{arr_local}", "From": "{dep_city}", "Status": "{status}"' + '},'
+	return response_html + ']'
 
 @app.route('/getOutboundSchedule', methods=['GET'])
 def getOutboundSchedule():
 	airport = request.args.get("airport")
 	flights = db.getOutboundSchedule(airport)
-	response_html = '<html>'
+	response_html = '['
 	for flight in flights:
 		dep_local, _, _, arr_city, _, flight_no, _, _, status, _, _ = flight
-		response_html += f'<div>№ {flight_no}, Departure time: {dep_local}, To: {arr_city}, Status: {status}\n</div>'
-	return response_html + '</html>'
+		response_html += '{' + f'"NO": "{flight_no}", "Departure time": "{dep_local}", "To": "{arr_city}", "Status": "{status}"' + '},'
+	return response_html + ']'
 
 
 def _buildRoutes(source_airport, departure_airport, date, seat_class, limit):
-	response_html = '<html>'
+	response_html = '['
 	ids2flight = {}
 	from_flights = {}
 
@@ -79,7 +79,7 @@ def _buildRoutes(source_airport, departure_airport, date, seat_class, limit):
 				if flight_id not in ids2flight:
 					from_flights[dep_airp].append(flight)
 					ids2flight[flight_id] = flight
-					# response_html += f'<div>№ {flight_no}, Departure time: {dep_glob}, Arrival time: {arr_glob}, From: {dep_city}, To: {arr_city}, Status: {status}\n</div>'
+					# response_html += '{' + f'№ {flight_no}, Departure time: {dep_glob}, Arrival time: {arr_glob}, From: {dep_city}, To: {arr_city}, Status: {status}\n' + '}'
 					source_list.add(arr_airp)
 
 
@@ -115,26 +115,24 @@ def _buildRoutes(source_airport, departure_airport, date, seat_class, limit):
 
 	price_tables = {}
 	for route in correct_routes:
-		response_html += f'<h3>Route:</h3>'
-
+		response_html += '['
 		total_price = 0
 		for flight in route:
-			dep_local, _, dep_city, arr_city, flight_id, flight_no, dep_glob, arr_glob, status, _, _ = flight
+			_, _, dep_city, arr_city, flight_id, flight_no, dep_glob, arr_glob, _, _, _ = flight
 			if flight_no in price_tables:
 				pricetb = price_tables[flight_no]
 			else:
 				pricetb = db.getPricetable(flight_no)
 				price_tables[flight_no] = pricetb
 
-			price = 15000
+			price = '-'
 			if seat_class in pricetb:
-				price = float(pricetb[seat_class])
+				price = float(pricetb[seat_class][0])
+				total_price += price
 
-			total_price += price
-			response_html += f'<div>ID {flight_id}, № {flight_no}, Departure time: {dep_glob}, Arrival time: {arr_glob}, From: {dep_city}, To: {arr_city}, Price: {price}\n</div>'
-			
-		response_html += f'<h4>Total price: {total_price}, Total time: {route[-1][7] - route[0][6]}</h4>'
-	return response_html + '</html>'
+			response_html += '{' + f'"ID": "{flight_id}", "NO": "{flight_no}", "Departure time": "{dep_glob}", "Arrival time": "{arr_glob}", "From": "{dep_city}", "To": "{arr_city}", "Price": "{price}"' + '},'
+		response_html += '],'
+	return response_html + ']'
 
 @app.route('/findRoutes', methods=['GET'])
 def findRoutes():
@@ -143,10 +141,26 @@ def findRoutes():
 	date = request.args.get("date")
 	seat_class = request.args.get("seat_class")
 	limit = request.args.get("limit")
-
 	routes = _buildRoutes(source, destination, date, seat_class, limit)
-
 	return routes
+
+@app.route('/createBooking', methods=['POST'])
+def createBooking():
+	json = request.get_json()
+	flights = json["flights"]
+	passenger_id = json["passenger_id"]
+	passenger_name = json["passenger_name"]
+	seat_class = json["seat_class"]
+	return db.makeBook(flights, passenger_id, passenger_name, seat_class)
+
+@app.route('/checkIn', methods=['POST'])
+def checkIn():
+	json = request.get_json()
+	flight_id = json["flight_id"]
+	passenger_id = json["passenger_id"]
+	seat_no = json["seat_no"]
+	book_ref = json["book_ref"]
+	return db.checkIn(flight_id, passenger_id, seat_no, book_ref)
 
 if __name__ == '__main__':
    app.run(host="0.0.0.0", port=5000)
